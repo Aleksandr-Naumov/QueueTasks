@@ -30,8 +30,11 @@
                 },
                 (key, value) =>
                 {
-                    value.Add(channel);
-                    return value;
+                    var newValue = new List<Channel<TaskFromChannel>>(value)
+                    {
+                        channel
+                    };
+                    return newValue;
                 });
 
             return channel;

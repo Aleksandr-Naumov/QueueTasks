@@ -3,7 +3,6 @@
     using System.Collections.Generic;
     using System.Threading.Channels;
     using System.Threading.Tasks;
-
     using Models;
 
     public interface IQueueOperatorManager
@@ -26,19 +25,6 @@
         /// </summary>
         /// <returns>true, если операторов нет в очереди; иначе false</returns>
         bool IsEmpty();
-
-        /// <summary>
-        ///     Отправить задачу оператору из очереди, которая не назначена на него
-        /// </summary>
-        /// <param name="taskId">Id задачи</param>
-        Task AddNotAssignedTask(string taskId);
-
-        /// <summary>
-        ///     Отправить задачу определенному оператору из очереди (задача заранее назначена на этого оператора)
-        /// </summary>
-        /// <param name="taskId">Id задачи</param>
-        /// <param name="operatorId">Id оператора</param>
-        Task AddAssignedTask(string taskId, string operatorId);
 
         /// <summary>
         ///     Проверяет что потенциальная задача была выдана оператору

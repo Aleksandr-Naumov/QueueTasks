@@ -5,19 +5,16 @@
     using System.Threading;
     using System.Threading.Tasks;
 
-    using Abstractions;
+    using Services;
 
     using Timer = System.Timers.Timer;
 
-    public class TimerTasks
+    internal class TimerTasks : IDisposable
     {
         private readonly ConcurrentDictionary<string, TaskSelects> _tasks = new ConcurrentDictionary<string, TaskSelects>();
-        private readonly IQueueOperatorManager _queueOperatorManager;
+        private readonly QueueOperatorManager _queueOperatorManager;
 
-        public TimerTasks(IQueueOperatorManager queueOperatorManager)
-        {
-            _queueOperatorManager = queueOperatorManager;
-        }
+        public TimerTasks(QueueOperatorManager queueOperatorManager) => _queueOperatorManager = queueOperatorManager;
 
         /// <summary>
         ///     Добавить потенциальную задачу для оператора, чтобы потом отправить ее на другогоу оператора,
@@ -28,7 +25,7 @@
         public async Task Add(string taskId, string operatorId)
         {
             _tasks.TryAdd(taskId, new TaskSelects() { DateTime = DateTime.UtcNow, OperatorId = operatorId });
-            await StartTimer();
+            await TryStartTimer();
         }
 
         /// <summary>
@@ -40,8 +37,8 @@
         public bool CheckOperator(string taskId, string operatorId) =>
             _tasks.ContainsKey(taskId) && _tasks[taskId].OperatorId == operatorId;
 
-        private static readonly SemaphoreSlim Pool = new SemaphoreSlim(1, 1);
-        private static readonly Timer Timer = new Timer() { Interval = 40 * 1000 };
+        private readonly SemaphoreSlim _pool = new SemaphoreSlim(1, 1);
+        private readonly Timer _timer = new Timer() { Interval = 40 * 1000 };
 
         /// <summary>
         ///     Удаление задачи из очереди ожидания взятия
@@ -49,52 +46,70 @@
         /// <param name="taskId"></param>
         public async Task Remove(string taskId)
         {
-            await Pool.WaitAsync();
-
             _tasks.TryRemove(taskId, out _);
-            TryStopTimer();
-
-            Pool.Release();
+            await TryStopTimer();
         }
 
-        private static readonly TimeSpan Difference = new TimeSpan(0, 0, 40);
+        private readonly TimeSpan _maxTimeForThinks = new TimeSpan(0, 0, 40);
 
-        private async Task StartTimer()
+        private async Task TryStartTimer()
         {
-            await Pool.WaitAsync();
+            await _pool.WaitAsync();
 
-            if (!Timer.Enabled)
+            try
             {
-                Timer.Elapsed +=
-                    async (sender, e) =>
-                    {
-                        foreach (var task in _tasks)
-                        {
-                            var gds = DateTime.UtcNow - task.Value.DateTime;
-                            if (DateTime.UtcNow - task.Value.DateTime > Difference)
-                            {
-                                _queueOperatorManager.Remove(task.Value.OperatorId);
-                                _tasks.TryRemove(task.Key, out _);
-                                await _queueOperatorManager.AddNotAssignedTask(task.Key);
-                            }
-                        }
+                if (!_timer.Enabled)
+                {
 
-                        TryStopTimer();
-                    };
-                Timer.AutoReset = true;
-                Timer.Enabled = true;
-                Timer.Start();
+                    // не добавляем повторно метод
+                    _timer.Elapsed -= CheckTasks;
+                    _timer.Elapsed += CheckTasks;
+
+                    _timer.AutoReset = true;
+                    _timer.Enabled = true;
+                    _timer.Start();
+                }
             }
-
-            Pool.Release();
+            finally
+            {
+                _pool.Release();
+            }
         }
 
-        private void TryStopTimer()
+        private async Task TryStopTimer()
         {
-            if (Timer.Enabled && _tasks.IsEmpty)
+            await _pool.WaitAsync();
+
+            try
             {
-                Timer.Stop();
+                if (_timer.Enabled && _tasks.IsEmpty)
+                {
+                    _timer.Stop();
+                }
             }
+            finally
+            {
+                _pool.Release();
+            }
+        }
+
+        private async void CheckTasks(object e, EventArgs a)
+        {
+            foreach (var task in _tasks)
+            {
+                if (DateTime.UtcNow - task.Value.DateTime > _maxTimeForThinks)
+                {
+                    _queueOperatorManager.Remove(task.Value.OperatorId);
+                    _tasks.TryRemove(task.Key, out _);
+                    await _queueOperatorManager.AddTask(task.Key);
+                }
+            }
+            await TryStopTimer();
+        }
+
+        public void Dispose()
+        {
+            _timer.Dispose();
         }
     }
 }

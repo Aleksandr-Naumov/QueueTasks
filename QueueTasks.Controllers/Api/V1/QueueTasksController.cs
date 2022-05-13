@@ -3,11 +3,14 @@
     using System;
     using System.ComponentModel;
     using System.Threading;
+    using System.Threading.Channels;
     using System.Threading.Tasks;
 
     using Abstractions;
 
     using Models;
+
+    using QueueTasks.Models;
 
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Http;
@@ -80,69 +83,93 @@
             Response.StatusCode = 200;
             await Response.Body.FlushAsync();
 
-            var timer = GetTimer();
-
-            var operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
-
-            var channel = _queueOperatorManager.AddToQueue(operatorId);
+            string? operatorId = null;
+            Channel<TaskFromChannel>? channel = null;
+            Timer? timer = null;
+            SemaphoreSlim? pool = null;
             try
             {
+                pool = new SemaphoreSlim(1, 1);
+
+                timer = new Timer
+                {
+                    Interval = 35 * 1000
+                };
+                timer.Elapsed +=
+                    async (sender, e) => await SendEventSse("event: connection\n" +
+                                                            "data: \"Повторное подключение\"\n\n", pool);
+                timer.AutoReset = true;
+                timer.Enabled = true;
+                timer.Start();
+
+                operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
+
+                channel = _queueOperatorManager.AddToQueue(operatorId);
+
                 var task = await channel.Reader.ReadAsync(HttpContext.RequestAborted);
 
                 await SendEventSse($"event: task\n" +
-                                   $"data: {JsonConvert.SerializeObject(task)}\n\n");
+                                   $"data: {JsonConvert.SerializeObject(task)}\n\n", pool);
 
                 channel.Writer.Complete();
             }
             catch (OperationCanceledException)
             {
                 _logger.LogInformation("Выход из очереди");
-                channel.Writer.Complete();
-                _queueOperatorManager.Remove(operatorId);
+                if (channel != null)
+                {
+                    channel.Writer.Complete();
+                }
+                if (operatorId != null)
+                {
+                    _queueOperatorManager.Remove(operatorId);
+                }
             }
             catch (Exception e)
             {
                 _logger.LogError(e, "Ошибка при ожидании появления задачи из очереди");
-                channel.Writer.Complete();
-                _queueOperatorManager.Remove(operatorId);
+                if (channel != null)
+                {
+                    channel.Writer.Complete();
+                }
+                if (operatorId != null)
+                {
+                    _queueOperatorManager.Remove(operatorId);
+                }
                 throw;
             }
             finally
             {
-                _pool.Dispose();
-                timer.Stop();
-                timer.Dispose();
+                if (pool != null)
+                {
+                    pool.Dispose();
+                }
+                if (timer != null)
+                {
+                    timer.Stop();
+                    timer.Dispose();
+                }
             }
 
             return new EmptyResult();
         }
 
-        private Timer GetTimer()
+        private async Task SendEventSse(string @event, SemaphoreSlim pool)
         {
-            var timer = new Timer
-            {
-                Interval = 35 * 1000
-            };
-            timer.Elapsed +=
-                async (sender, e) => await SendEventSse("event: connection\n" +
-                                                        "data: \"Повторное подключение\"\n\n");
-            timer.AutoReset = true;
-            timer.Enabled = true;
-            timer.Start();
-            return timer;
-        }
+            await pool.WaitAsync();
 
-        private readonly SemaphoreSlim _pool = new SemaphoreSlim(1, 1);
-
-        private async Task SendEventSse(string @event)
-        {
-            await _pool.WaitAsync();
-            if (!Response.HttpContext.RequestAborted.IsCancellationRequested)
+            try
             {
-                await Response.WriteAsync(@event);
-                await Response.Body.FlushAsync();
+                if (!Response.HttpContext.RequestAborted.IsCancellationRequested)
+                {
+                    await Response.WriteAsync(@event);
+                    await Response.Body.FlushAsync();
+                }
             }
-            _pool.Release();
+            finally
+            {
+                pool.Release();
+            }
         }
 
         /// <summary>
@@ -173,7 +200,7 @@
             }
 
             return StatusCode(StatusCodes.Status403Forbidden,
-                ApiResponse.CreateFailure(result.Error, (int)ErrorCodes.ApplicationAlreadyAssigned));
+                ApiResponse.CreateFailure(result.Error, (int)ErrorCodes.TaskAlreadyAssigned));
         }
 
         /// <summary>

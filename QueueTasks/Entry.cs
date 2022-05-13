@@ -12,8 +12,10 @@
             where TExtensionService : class, IExtensionService
             where TProvider : class, ICurrentOperatorProvider
         {
-            serviceCollection.AddSingleton<IQueueOperatorManager, QueueOperatorManager>();
-            serviceCollection.AddScoped<ITasksManager, TasksManager>();
+            serviceCollection.AddSingleton<QueueOperatorManager>();
+            serviceCollection.AddTransient<IQueueOperatorManager>(x => x.GetService<QueueOperatorManager>());
+            serviceCollection.AddTransient<ITasksManager>(x => x.GetService<QueueOperatorManager>());
+
             serviceCollection.AddScoped<ICurrentOperatorProvider, TProvider>();
             serviceCollection.AddScoped<IExtensionService, TExtensionService>();
 

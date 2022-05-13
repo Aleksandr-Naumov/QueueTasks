@@ -2,6 +2,6 @@
 {
     internal enum ErrorCodes
     {
-        ApplicationAlreadyAssigned = 910
+        TaskAlreadyAssigned = 910
     }
 }
