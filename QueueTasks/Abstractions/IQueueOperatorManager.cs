@@ -15,10 +15,16 @@
         Channel<TaskFromChannel> AddToQueue(string operatorId);
 
         /// <summary>
-        ///     Удаление оператора из очереди и его канала для уведомления о новых заявках
+        ///     Удаление оператора из очереди и его каналов, если эти каналы уже завершены
         /// </summary>
         /// <param name="operatorId">Id оператора</param>
         void Remove(string operatorId);
+
+        /// <summary>
+        ///     Удаление оператора из очереди и всех его каналов сразу
+        /// </summary>
+        /// <param name="operatorId">Id оператора</param>
+        void RemoveAll(string operatorId);
 
         /// <summary>
         ///     Проверяет пустая очереди или нет

@@ -32,6 +32,8 @@
 
         public async Task AddTask(string taskId)
         {
+            _logger.LogInformation($"Пришла не назначенная задача {taskId}");
+
             var (firstOperatorId, channels) = GetFirstOperator();
             if (firstOperatorId == null)
             {
@@ -71,6 +73,8 @@
 
         public async Task AddTask(string taskId, string operatorId)
         {
+            _logger.LogInformation($"Пришла назначенная задача {taskId} на оператора {operatorId}");
+
             await _channelService.WriteToChannel(taskId, operatorId, assigned: true);
             Remove(operatorId);
         }
@@ -103,6 +107,24 @@
                 RemoveFromQueue(operatorId);
                 _channelService.Remove(operatorId);
             }
+        }
+
+        public void RemoveAll(string operatorId)
+        {
+            RemoveFromQueue(operatorId);
+
+            var channels = _channelService.GetChannels(operatorId);
+            if (channels != null)
+            {
+                foreach (var channel in channels)
+                {
+                    if (!channel.Reader.Completion.IsCompleted)
+                    {
+                        channel.Writer.Complete();
+                    }
+                }
+            }
+            _channelService.Remove(operatorId);
         }
 
         public bool IsEmpty() => _queue.IsEmpty();

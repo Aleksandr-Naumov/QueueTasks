@@ -93,7 +93,7 @@
 
                 timer = new Timer
                 {
-                    Interval = 35 * 1000
+                    Interval = 30 * 1000
                 };
                 timer.Elapsed +=
                     async (sender, e) => await SendEventSse("event: connection\n" +
@@ -106,16 +106,23 @@
 
                 channel = _queueOperatorManager.AddToQueue(operatorId);
 
-                var task = await channel.Reader.ReadAsync(HttpContext.RequestAborted);
+                var taskFromChannel = await channel.Reader.ReadAsync(HttpContext.RequestAborted);
+                timer.Stop();
+
+                _logger.LogInformation($"Оператору {operatorId} пришла задача {taskFromChannel.TaskId}");
 
                 await SendEventSse($"event: task\n" +
-                                   $"data: {JsonConvert.SerializeObject(task)}\n\n", pool);
+                                   $"data: {JsonConvert.SerializeObject(taskFromChannel)}\n\n", pool);
 
                 channel.Writer.Complete();
             }
             catch (OperationCanceledException)
             {
                 _logger.LogInformation("Выход из очереди");
+                if (timer != null)
+                {
+                    timer.Stop();
+                }
                 if (channel != null)
                 {
                     channel.Writer.Complete();
@@ -128,6 +135,10 @@
             catch (Exception e)
             {
                 _logger.LogError(e, "Ошибка при ожидании появления задачи из очереди");
+                if (timer != null)
+                {
+                    timer.Stop();
+                }
                 if (channel != null)
                 {
                     channel.Writer.Complete();
@@ -146,7 +157,6 @@
                 }
                 if (timer != null)
                 {
-                    timer.Stop();
                     timer.Dispose();
                 }
             }
@@ -226,14 +236,15 @@
         }
 
         /// <summary>
-        ///     Выход из очереди оператора (Удаление оператора из очереди)
+        ///     Выход из очереди оператора - удаление оператора из очереди и если его вызвать, то получение задач в других вкладках не произойдет
+        ///     (можно использовать только для тестирования, тк этот метод излишний, потому что если закрывать "wait-sse", то там же будет вызываться выход из очереди)
         /// </summary>
         /// <returns></returns>
         [HttpDelete("exit")]
         public async Task<IActionResult> ExitFromQueue()
         {
             var operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
-            _queueOperatorManager.Remove(operatorId);
+            _queueOperatorManager.RemoveAll(operatorId);
             return Ok();
         }
 
