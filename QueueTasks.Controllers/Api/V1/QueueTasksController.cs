@@ -55,9 +55,6 @@
         /// <response code="200">Отправлена Id задачи, которая уже назначена на оператора</response>
         /// <response code="403">Потенциальная задача уже назначена на другого оператора</response>
         [HttpPost("take-free")]
-        [Description("Метод получения id свободной задачи и назначения на оператора")]
-        [Consumes("application/json")]
-        [Produces("application/json")]
         public async Task<IActionResult> TakeFreeTask()
         {
             var operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
@@ -93,7 +90,7 @@
 
                 timer = new Timer
                 {
-                    Interval = 30 * 1000
+                    Interval = 25 * 1000
                 };
                 timer.Elapsed +=
                     async (sender, e) => await SendEventSse("event: connection\n" +
@@ -107,25 +104,26 @@
                 channel = _queueOperatorManager.AddToQueue(operatorId);
 
                 var taskFromChannel = await channel.Reader.ReadAsync(HttpContext.RequestAborted);
-                timer.Stop();
 
-                _logger.LogInformation($"Оператору {operatorId} пришла задача {taskFromChannel.TaskId}");
+                channel.Writer.Complete();
+                timer.Stop();
 
                 await SendEventSse($"event: task\n" +
                                    $"data: {JsonConvert.SerializeObject(taskFromChannel)}\n\n", pool);
 
-                channel.Writer.Complete();
+                _logger.LogInformation($"Оператору {operatorId} пришла задача {taskFromChannel.TaskId}");
             }
             catch (OperationCanceledException)
             {
-                _logger.LogInformation("Выход из очереди");
-                if (timer != null)
-                {
-                    timer.Stop();
-                }
+                _logger.LogInformation($"Выход из очереди оператора {operatorId}");
+
                 if (channel != null)
                 {
                     channel.Writer.Complete();
+                }
+                if (timer != null)
+                {
+                    timer.Stop();
                 }
                 if (operatorId != null)
                 {
@@ -134,14 +132,15 @@
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Ошибка при ожидании появления задачи из очереди");
-                if (timer != null)
-                {
-                    timer.Stop();
-                }
+                _logger.LogError(e, $"Ошибка при ожидании появления задачи из очереди оператором {operatorId}");
+
                 if (channel != null)
                 {
                     channel.Writer.Complete();
+                }
+                if (timer != null)
+                {
+                    timer.Stop();
                 }
                 if (operatorId != null)
                 {
@@ -198,19 +197,21 @@
 
             if (!await _queueOperatorManager.IsTaskForOperator(taskId, operatorId))
             {
-                _logger.LogWarning($"Задача {taskId} не назначена на оператора {operatorId}");
+                _logger.LogWarning($"Задача {taskId} не является потенциальной для назначения оператором {operatorId}");
                 return StatusCode(StatusCodes.Status403Forbidden);
             }
 
             var result = await _extensionService.TryAssignTask(taskId, operatorId);
-            if (result.Success)
+            if (!result.Success)
             {
-                _queueOperatorManager.Remove(operatorId);
-                return Ok();
+                _logger.LogInformation($"Задачу {taskId} не получилось назначить на оператора {operatorId}");
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    ApiResponse.CreateFailure(result.Error, (int)ErrorCodes.TaskAlreadyAssigned));
             }
 
-            return StatusCode(StatusCodes.Status403Forbidden,
-                ApiResponse.CreateFailure(result.Error, (int)ErrorCodes.TaskAlreadyAssigned));
+            _queueOperatorManager.Remove(operatorId);
+            _logger.LogInformation($"Задача {taskId} успешно назначена на оператора {operatorId}");
+            return Ok();
         }
 
         /// <summary>
@@ -218,26 +219,27 @@
         /// </summary>
         /// <param name="taskId">Id задачи от которой отказался оператор</param>
         [HttpPost("{taskId}/reject")]
-        [Produces("application/json")]
         public async Task<IActionResult> Reject(string taskId)
         {
             var operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
 
             if (!await _queueOperatorManager.IsTaskForOperator(taskId, operatorId))
             {
-                _logger.LogWarning($"Задача {taskId} не назначена на оператора {operatorId}");
+                _logger.LogWarning($"Задача {taskId} не является потенциальной для отмены оператором {operatorId}");
                 return StatusCode(StatusCodes.Status403Forbidden);
             }
 
             _queueOperatorManager.Remove(operatorId);
             await _tasksManager.AddTask(taskId);
-
+            _logger.LogInformation($"Задача {taskId} успешно назначена на оператора {operatorId}");
             return Ok();
         }
 
         /// <summary>
         ///     Выход из очереди оператора - удаление оператора из очереди и если его вызвать, то получение задач в других вкладках не произойдет
-        ///     (можно использовать только для тестирования, тк этот метод излишний, потому что если закрывать "wait-sse", то там же будет вызываться выход из очереди)
+        ///     (этот метод излишний, можно использовать только для тестирования, тк если нужно выйти из очереди можно закрыть подключение "wait-sse".
+        ///     Также если будет несколько вкладок с открытым запросом "wait-sse", то при вызове этого метода подключение обрубится на этих вкладках и
+        ///     "wait-sse" снова вызовется на этих вкладках, тк eventsource после неудачи переподключается, поэтому этот метод не особо эффективный)
         /// </summary>
         /// <returns></returns>
         [HttpDelete("exit")]
@@ -245,6 +247,7 @@
         {
             var operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
             _queueOperatorManager.RemoveAll(operatorId);
+            _logger.LogInformation($"Выход из очереди оператора {operatorId} через метод \"exit\"");
             return Ok();
         }
 

@@ -105,6 +105,11 @@
         /// </summary>
         /// <returns>Информация об операторах, которые находятся в очереди</returns>
         public IEnumerable<OperatorDto> GetOperators() =>
-            _operators.Select(x => new OperatorDto() { OperatorId = x.Key, Priority = x.Value.Priority, Status = x.Value.Status.GetDescription() });
+            _operators.Select(x => new OperatorDto()
+            {
+                OperatorId = x.Key,
+                Priority = x.Value.Priority,
+                Status = x.Value.Status.GetDescription()
+            });
     }
 }
