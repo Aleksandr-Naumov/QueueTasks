@@ -2,7 +2,7 @@
 {
     using System;
 
-    public class TaskSelects
+    internal class TaskSelects
     {
         /// <summary>
         ///     Id оператора

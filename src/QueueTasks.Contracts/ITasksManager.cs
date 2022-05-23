@@ -1,7 +1,10 @@
-﻿namespace QueueTasks.Abstractions
+﻿namespace QueueTasks.Contracts
 {
     using System.Threading.Tasks;
 
+    /// <summary>
+    ///     Интерфейс для работы с задачами
+    /// </summary>
     public interface ITasksManager
     {
         /// <summary>

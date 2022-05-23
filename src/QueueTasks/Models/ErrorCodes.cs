@@ -1,4 +1,4 @@
-﻿namespace QueueTasks.Controllers.Models
+﻿namespace QueueTasks.Models
 {
     internal enum ErrorCodes
     {

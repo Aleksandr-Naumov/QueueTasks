@@ -1,9 +1,9 @@
-﻿namespace QueueTasks.Models
+﻿namespace QueueTasks.Contracts
 {
     public class AssignResult
     {
         /// <summary>
-        ///     Произошло ли азначение успешно
+        ///     Произошло ли назначение успешно
         /// </summary>
         public bool Success { get; set; }
 

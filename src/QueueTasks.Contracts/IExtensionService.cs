@@ -1,8 +1,6 @@
-﻿namespace QueueTasks.Abstractions
+﻿namespace QueueTasks.Contracts
 {
     using System.Threading.Tasks;
-
-    using Models;
 
     /// <summary>
     ///     Интерфейс для расширения
@@ -21,8 +19,15 @@
         /// </summary>
         /// <param name="taskId">Id задачи</param>
         /// <param name="operatorId">Id оператора</param>
-        /// <returns>true, если можно назначить; иначе false</returns>
+        /// <returns>true, если можно назначить задачу на оператора; иначе false</returns>
         Task<bool> CanAssign(string taskId, string operatorId);
+
+        /// <summary>
+        ///     Метод проверки возможности встать в очередь оператору
+        /// </summary>
+        /// <param name="operatorId">Id оператора</param>
+        /// <returns>true, если можно встать в очередь; иначе false</returns>
+        Task<bool> CanAddToQueue(string operatorId);
 
         /// <summary>
         ///     Метод для назначения потенциальной задачи на оператора.

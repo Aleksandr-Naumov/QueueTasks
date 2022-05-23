@@ -5,7 +5,7 @@
     using System.Threading.Tasks;
     using Models;
 
-    public interface IQueueOperatorManager
+    internal interface IQueueOperatorManager
     {
         /// <summary>
         ///     Добавляет в очередь оператора и возвращает канал

@@ -3,16 +3,22 @@
 	<PropertyGroup>
 		<TargetFramework>netcoreapp3.1</TargetFramework>
 		<Nullable>enable</Nullable>
+		<!--<PackageId>QueueTasks</PackageId>
+		<Version>1.0.0</Version>
+		<Authors>Aleksandr Naumov</Authors>
+		<Company>Aleksandr Naumov</Company>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>-->
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.2.5" />
 		<PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning" Version="4.1.1" />
 		<PackageReference Include="Swashbuckle.AspNetCore.Newtonsoft" Version="5.4.1" />
 		<PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="5.4.1" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\QueueTasks\QueueTasks.csproj" />
+		<ProjectReference Include="..\QueueTasks.Contracts\QueueTasks.Contracts.csproj" />
 	</ItemGroup>
 
 </Project>

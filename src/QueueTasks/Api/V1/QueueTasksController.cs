@@ -1,4 +1,4 @@
-﻿namespace QueueTasks.Controllers.Api.V1
+﻿namespace QueueTasks.Api.V1
 {
     using System;
     using System.ComponentModel;
@@ -10,7 +10,7 @@
 
     using Models;
 
-    using QueueTasks.Models;
+    using Contracts;
 
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Http;
@@ -25,7 +25,7 @@
     [ApiVersion("1")]
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiController]
-    public class QueueTasksController : ControllerBase
+    internal class QueueTasksController : ControllerBase
     {
         private readonly ICurrentOperatorProvider _currentOperatorProvider;
         private readonly IExtensionService _extensionService;
@@ -58,6 +58,11 @@
         public async Task<IActionResult> TakeFreeTask()
         {
             var operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
+
+            if (!await _extensionService.CanAddToQueue(operatorId))
+            {
+                throw new Exception();
+            }
 
             if (!_queueOperatorManager.IsEmpty())
             {
@@ -100,6 +105,11 @@
                 timer.Start();
 
                 operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
+
+                if (!(await _extensionService.CanAddToQueue(operatorId)))
+                {
+                    throw new Exception();
+                }
 
                 channel = _queueOperatorManager.AddToQueue(operatorId);
 

@@ -10,7 +10,7 @@
             where TEnum : Enum
         {
             var info = @enum.GetType().GetField(@enum.ToString());
-            var attributes = (DescriptionAttribute[])info.GetCustomAttributes(typeof(DescriptionAttribute), inherit: false);
+            var attributes = (DescriptionAttribute[])info!.GetCustomAttributes(typeof(DescriptionAttribute), inherit: false);
 
             return attributes?.FirstOrDefault()?.Description ?? @enum.ToString();
         }

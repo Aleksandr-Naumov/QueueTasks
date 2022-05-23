@@ -13,6 +13,8 @@
 
     using Models;
 
+    using Contracts;
+
     internal class QueueOperatorManager : IQueueOperatorManager, ITasksManager, IDisposable
     {
         private readonly ChannelService _channelService = new ChannelService();
