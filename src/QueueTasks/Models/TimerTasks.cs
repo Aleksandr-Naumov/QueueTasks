@@ -38,7 +38,7 @@
             _tasks.ContainsKey(taskId) && _tasks[taskId].OperatorId == operatorId;
 
         private readonly SemaphoreSlim _pool = new SemaphoreSlim(1, 1);
-        private readonly Timer _timer = new Timer() { Interval = 40 * 1000 };
+        private readonly Timer _timer = new Timer() { Interval = 10 * 1000 }; //TODO: сделать изменяемым значение
 
         /// <summary>
         ///     Удаление задачи из очереди ожидания взятия
@@ -50,7 +50,7 @@
             await TryStopTimer();
         }
 
-        private readonly TimeSpan _maxTimeForThinks = new TimeSpan(0, 0, 40);
+        private readonly TimeSpan _maxTimeForThinks = new TimeSpan(0, 0, 30); //TODO: сделать изменяемым значение
 
         private async Task TryStartTimer()
         {
