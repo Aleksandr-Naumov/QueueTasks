@@ -23,6 +23,7 @@
     using Newtonsoft.Json;
 
     using Timer = System.Timers.Timer;
+    using QueueTasks.Exceptions;
 
     [Authorize]
     [ApiVersion("1")]
@@ -58,22 +59,24 @@
         /// <response code="200">Отправлена Id задачи, которая уже назначена на оператора</response>
         /// <response code="403">Потенциальная задача уже назначена на другого оператора</response>
         [HttpPost("take-free")]
+        [Produces("application/json")]
         public async Task<IActionResult> TakeFreeTask()
         {
             var operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
 
             if (!await _extensionService.CanAddToQueue(operatorId))
             {
-                throw new Exception();
+                _logger.LogInformation($"Оператор {operatorId} не может встать в очередь из-за проверок ограничения на взятия и ожидания задач");
+                return BadRequest(ApiResponse.CreateFailure("Нет возможности брать задачи"));
             }
 
             if (!_queueOperatorManager.IsEmpty())
             {
-                return Ok(new { TaskId = (string)default! });
+                return Ok(ApiResponse.CreateSuccess(new { TaskId = (string)default! }));
             }
 
             var taskId = await _extensionService.GetFreeTaskId(operatorId);
-            return Ok(new { TaskId = taskId });
+            return Ok(ApiResponse.CreateSuccess(new { TaskId = taskId }));
         }
 
         /// <summary>
@@ -85,8 +88,6 @@
             Response.Headers.Add("Content-Type", "text/event-stream");
             Response.Headers.Add("Cache-Control", "no-cache");
             Response.Headers.Add("Access-Control-Allow-Origin", "*");
-            Response.StatusCode = 200;
-            await Response.Body.FlushAsync();
 
             string? operatorId = null;
             Channel<TaskFromChannel>? channel = null;
@@ -98,7 +99,7 @@
 
                 timer = new Timer
                 {
-                    Interval = 25 * 1000
+                    Interval = 20 * 1000
                 };
                 timer.Elapsed +=
                     async (sender, e) => await SendEventSse("event: connection\n" +
@@ -111,7 +112,8 @@
 
                 if (!await _extensionService.CanAddToQueue(operatorId))
                 {
-                    throw new Exception();
+                    //TODO: или сделать event отдельный для такого случая
+                    throw new PossibilityWaitTasksException();
                 }
 
                 channel = _queueOperatorManager.AddToQueue(operatorId);
@@ -131,6 +133,15 @@
                 _logger.LogInformation($"Выход из очереди оператора {operatorId}");
 
                 CompletingWaitingTask(operatorId, channel, timer);
+            }
+            catch (PossibilityWaitTasksException)
+            {
+                _logger.LogInformation($"Оператор {operatorId} не может встать в очередь из-за проверок ограничения на взятия и ожидания задач");
+
+                CompletingWaitingTask(operatorId, channel, timer);
+
+                Response.StatusCode = 204;
+                await Response.Body.FlushAsync();
             }
             catch (Exception e)
             {
@@ -205,7 +216,8 @@
             if (!await _queueOperatorManager.IsTaskForOperator(taskId, operatorId))
             {
                 _logger.LogWarning($"Задача {taskId} не является потенциальной для назначения оператором {operatorId}");
-                return StatusCode(StatusCodes.Status403Forbidden);
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    ApiResponse.CreateFailure("Не возможность назначения задачи на текущего оператора"));
             }
 
             var result = await _extensionService.TryAssignTask(taskId, operatorId);
@@ -218,7 +230,7 @@
 
             _queueOperatorManager.Remove(operatorId);
             _logger.LogInformation($"Задача {taskId} успешно назначена на оператора {operatorId}");
-            return Ok();
+            return Ok(ApiResponse.CreateSuccess());
         }
 
         /// <summary>
@@ -226,6 +238,7 @@
         /// </summary>
         /// <param name="taskId">Id задачи от которой отказался оператор</param>
         [HttpPost("{taskId}/reject")]
+        [Produces("application/json")]
         public async Task<IActionResult> Reject(string taskId)
         {
             var operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
@@ -233,13 +246,14 @@
             if (!await _queueOperatorManager.IsTaskForOperator(taskId, operatorId))
             {
                 _logger.LogWarning($"Задача {taskId} не является потенциальной для отмены оператором {operatorId}");
-                return StatusCode(StatusCodes.Status403Forbidden);
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    ApiResponse.CreateFailure("Не возможность отказа от задачи текущим оператором"));
             }
 
             _queueOperatorManager.Remove(operatorId);
             await _tasksManager.AddTask(taskId);
             _logger.LogInformation($"Задача {taskId} успешно назначена на оператора {operatorId}");
-            return Ok();
+            return Ok(ApiResponse.CreateSuccess());
         }
 
         /// <summary>
@@ -250,19 +264,21 @@
         /// </summary>
         /// <returns></returns>
         [HttpDelete("exit")]
+        [Produces("application/json")]
         public async Task<IActionResult> ExitFromQueue()
         {
             var operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
             _queueOperatorManager.RemoveAll(operatorId);
             _logger.LogInformation($"Выход из очереди оператора {operatorId} через метод \"exit\"");
-            return Ok();
+            return Ok(ApiResponse.CreateSuccess());
         }
 
         /// <summary>
         ///     Метод для получения списка очереди из операторов
         /// </summary>
         [HttpGet("queue-operators")]
+        [Produces("application/json")]
         public IActionResult GetQueueOperators() =>
-            Ok(_queueOperatorManager.GetOperators());
+            Ok(ApiResponse.CreateSuccess(_queueOperatorManager.GetOperators()));
     }
 }

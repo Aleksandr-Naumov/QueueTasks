@@ -23,7 +23,7 @@
         Task<bool> CanAssign(string taskId, string operatorId);
 
         /// <summary>
-        ///     Метод проверки возможности встать в очередь оператору
+        ///     Метод проверки оператора на возможность брать и ожидать задач из очереди
         /// </summary>
         /// <param name="operatorId">Id оператора</param>
         /// <returns>true, если можно встать в очередь; иначе false</returns>

@@ -7,7 +7,7 @@
 2. services.**AddQueueTasks<YourExtensionService, YourCurrentOperatorProvider>()** - регистрация служб;
 3. services.AddMvc().**AddQueueTasksApi()** - добавление API;
 4. services.**AddQueueTasksSwaggerDocumentation()** - отображение описания методов API в Swagger;
-5. Внедрить **ITaskManager**, где будет происходить создание новых задач, и вызвать один из перегруженных метод **Add**;
+5. Внедрить **ITasksManager**, где будет происходить создание новых задач, и вызвать один из перегруженных метод **Add**;
 
 
 **Порядок вызовов методов API:**
@@ -48,7 +48,7 @@
   alert(Пришла таска: ${event.data});
 });
 
-**Пример именованного события** - 'event: task\ndata: {"taskId":"171","assigned":false}\n\n'
+**Пример события** - 'event: task\ndata: {"taskId":"171","assigned":false}\n\n'
 
 **Проблемы с которыми можно столкнуться:**
 - Сервер отдает все события, когда завершается сам запрос => httpContext.Response.Body может быть присвоен новый Stream в каком-то Middleware,
