@@ -19,7 +19,7 @@
         ///     Значение - оператор
         /// </summary>
         private readonly ConcurrentDictionary<string, Operator> _operators = new ConcurrentDictionary<string, Operator>();
-        private long _priority; //TODO: сделать ulong при использовании .NET, а скорее всего лучше перейти на DateTime просто
+        private long _priority; //TODO: сделать ulong при использовании .NET 6, а скорее всего лучше перейти на DateTime просто
 
         /// <summary>
         ///     Добавляет в конец очереди оператора

@@ -14,7 +14,6 @@
 
     public static class Entry
     {
-
         /// <summary>
         ///     Зарегистрировать зависимости очереди
         /// </summary>
@@ -34,7 +33,6 @@
             return serviceCollection;
         }
 
-
         /// <summary>
         ///     Добавить API очереди
         /// </summary>
@@ -42,7 +40,6 @@
             builder
                 .AddApplicationPart(Assembly.GetAssembly(typeof(QueueTasksController)))
                 .AddXmlSerializerFormatters();
-
 
         /// <summary>
         ///     Добавить отображение документации API очереди в Swagger

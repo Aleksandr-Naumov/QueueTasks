@@ -1,7 +1,6 @@
 ﻿namespace QueueTasks.Api.V1
 {
     using System;
-    using System.ComponentModel;
     using System.Threading;
     using System.Threading.Channels;
     using System.Threading.Tasks;
@@ -11,6 +10,10 @@
     using Models;
 
     using Contracts;
+
+    using QueueTasks.Models;
+
+    using QueueTasks.Api.Models.Enums;
 
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Http;
@@ -106,7 +109,7 @@
 
                 operatorId = await _currentOperatorProvider.GetCurrentOperatorId();
 
-                if (!(await _extensionService.CanAddToQueue(operatorId)))
+                if (!await _extensionService.CanAddToQueue(operatorId))
                 {
                     throw new Exception();
                 }
@@ -127,35 +130,13 @@
             {
                 _logger.LogInformation($"Выход из очереди оператора {operatorId}");
 
-                if (channel != null)
-                {
-                    channel.Writer.Complete();
-                }
-                if (timer != null)
-                {
-                    timer.Stop();
-                }
-                if (operatorId != null)
-                {
-                    _queueOperatorManager.Remove(operatorId);
-                }
+                CompletingWaitingTask(operatorId, channel, timer);
             }
             catch (Exception e)
             {
                 _logger.LogError(e, $"Ошибка при ожидании появления задачи из очереди оператором {operatorId}");
 
-                if (channel != null)
-                {
-                    channel.Writer.Complete();
-                }
-                if (timer != null)
-                {
-                    timer.Stop();
-                }
-                if (operatorId != null)
-                {
-                    _queueOperatorManager.Remove(operatorId);
-                }
+                CompletingWaitingTask(operatorId, channel, timer);
                 throw;
             }
             finally
@@ -188,6 +169,22 @@
             finally
             {
                 pool.Release();
+            }
+        }
+
+        private void CompletingWaitingTask(string? operatorId, Channel<TaskFromChannel>? channel, Timer? timer)
+        {
+            if (channel != null)
+            {
+                channel.Writer.Complete();
+            }
+            if (timer != null)
+            {
+                timer.Stop();
+            }
+            if (operatorId != null)
+            {
+                _queueOperatorManager.Remove(operatorId);
             }
         }
 
