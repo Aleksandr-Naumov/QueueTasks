@@ -1,6 +1,6 @@
 ﻿namespace QueueTasks.Models
 {
-    internal class OperatorDto
+    public class OperatorDto
     {
         public string OperatorId { get; set; } = default!;
 

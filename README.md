@@ -30,11 +30,7 @@
 
 **Примеры использования EventSource (JS):**
 
-- const eventSource = new EventSource("/api/v1/QueueTasks/wait-sse", {
-            headers: {
-                'Authorization': 'Bearer ' + authorizationToken
-            }
-        });
+- const eventSource = new EventSource("/api/v1/QueueTasks/wait-sse"); // Чтобы авторизоваться можно использовать EventSourcePolyfill
         
 - eventSource.onmessage = function(event) {
   console.log("Новое сообщение", event.data);
@@ -54,9 +50,15 @@
 - Сервер отдает все события, когда завершается сам запрос => httpContext.Response.Body может быть присвоен новый Stream в каком-то Middleware,
 если вы все-таки что-то хотите сделать со Stream (Response.Body),
 то лучше сделайте декоратор для изменения/обогащения его, но никак не создавать новый Stream;
-- не отображаются на фронте события => добавить в webpack.config "compress: false," - "Исправлен баг работы SSE в webpack.config";
+- У некоторых пользователей обрывается соединение(запрос) и начинается новый запрос (постоянный перевызов метода "wait-sse") => не присылается заголовок Transfer-Encoding, 
+это может быть из-за настройка nginx конфига, если копировали со stackoverflow информацию, то нужно добавить в location "chunked_transfer_encoding on;";
+- Не отображаются на фронте события => добавить в webpack.config "compress: false," - "Исправлен баг работы SSE в webpack.config";
+- Установленный антивирусник может пожаловаться;
+
+Список необходимых заголовках, которые должны приходить с ответом:
+...
 
 **Ссылки:**
-- [Nginx config](https://stackoverflow.com/questions/13672743/eventsource-server-sent-events-through-nginx "location section")
+- [Nginx config](https://stackoverflow.com/questions/13672743/eventsource-server-sent-events-through-nginx "location section") - обязательно **chunked_transfer_encoding on;**
 - [Expample on PHP using SSE](https://developer.mozilla.org/ru/docs/Web/API/Server-sent_events/Using_server-sent_events "Пример SSE")
 - [JavaScript SSE](https://learn.javascript.ru/server-sent-events "Как использовать SSE в JS")

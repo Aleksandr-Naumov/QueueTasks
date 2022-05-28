@@ -46,11 +46,14 @@
         /// </summary>
         public static IServiceCollection AddQueueTasksSwaggerDocumentation(this IServiceCollection services)
         {
-            services.AddSwaggerGen(c =>
+            services.AddSwaggerGen(options =>
             {
                 var xmlFile = $"{Assembly.GetAssembly(typeof(QueueTasksController))?.GetName().Name}.xml";
                 var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-                c.IncludeXmlComments(xmlPath);
+                if (File.Exists(xmlPath))
+                {
+                    options.IncludeXmlComments(xmlPath);
+                }
             }).AddSwaggerGenNewtonsoftSupport();
 
             return services;

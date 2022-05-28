@@ -12,7 +12,7 @@
     /// <summary>
     ///     Очередь из операторов
     /// </summary>
-    internal class QueueOperators
+    public class QueueOperators
     {
         /// <summary>
         ///     Ключ - Id оператора,
@@ -35,13 +35,13 @@
         /// <returns>Id оператора, если очередь не пуста; инача null</returns>
         public string? Dequeue()
         {
-            var firstOperatorId = _operators.OrderBy(x => x.Value).FirstOrDefault().Key;
+            var firstOperatorId = _operators.OrderBy(x => x.Value.Priority).FirstOrDefault().Key;
             if (firstOperatorId == null)
             {
                 return null;
             }
 
-            if (_operators.TryRemove(firstOperatorId, out _))
+            if (!_operators.TryRemove(firstOperatorId, out _))
             {
                 return null;
             }

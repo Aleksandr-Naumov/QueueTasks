@@ -29,7 +29,7 @@
     [ApiVersion("1")]
     [Route("api/v{version:apiVersion}/[controller]")]
     [ApiController]
-    internal class QueueTasksController : ControllerBase
+    public class QueueTasksController : ControllerBase
     {
         private readonly ICurrentOperatorProvider _currentOperatorProvider;
         private readonly IExtensionService _extensionService;
@@ -85,7 +85,7 @@
         [HttpGet("wait-sse")]
         public async Task<IActionResult> WaitTask()
         {
-            Response.Headers.Add("Content-Type", "text/event-stream");
+            Response.Headers.Add("Content-Type", "text/event-stream; charset=UTF-8");
             Response.Headers.Add("Cache-Control", "no-cache");
             Response.Headers.Add("Access-Control-Allow-Origin", "*");
 

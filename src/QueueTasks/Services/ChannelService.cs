@@ -8,7 +8,7 @@
 
     using Models;
 
-    internal class ChannelService
+    public class ChannelService
     {
         private readonly ConcurrentDictionary<string, List<Channel<TaskFromChannel>>> _channels = new ConcurrentDictionary<string, List<Channel<TaskFromChannel>>>();
 

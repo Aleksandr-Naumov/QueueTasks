@@ -60,7 +60,6 @@
             {
                 if (!_timer.Enabled)
                 {
-
                     // не добавляем повторно метод
                     _timer.Elapsed -= CheckTasks;
                     _timer.Elapsed += CheckTasks;

@@ -2,7 +2,7 @@
 {
     using Newtonsoft.Json;
 
-    internal class TaskFromChannel
+    public class TaskFromChannel
     {
         public TaskFromChannel(string taskId, bool assigned)
         {
