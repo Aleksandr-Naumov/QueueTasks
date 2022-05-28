@@ -3,11 +3,12 @@
 	<PropertyGroup>
 		<TargetFramework>netcoreapp3.1</TargetFramework>
 		<Nullable>enable</Nullable>
-		<!--<PackageId>QueueTasks</PackageId>
+		<PackageId>QueueTasks</PackageId>
 		<Version>1.0.0</Version>
 		<Authors>Aleksandr Naumov</Authors>
 		<Company>Aleksandr Naumov</Company>
-		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>-->
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 	</PropertyGroup>
 
 	<ItemGroup>
