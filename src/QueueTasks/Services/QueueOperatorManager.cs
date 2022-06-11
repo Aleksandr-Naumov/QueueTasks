@@ -5,21 +5,20 @@
     using System.Linq;
     using System.Threading.Channels;
     using System.Threading.Tasks;
+    using System.Text.Json;
 
     using Abstractions;
-
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
-
     using Models;
-
     using Contracts;
 
     internal class QueueOperatorManager : IQueueOperatorManager, ITasksManager, IDisposable
     {
         private readonly ChannelService _channelService = new ChannelService();
         private readonly QueueOperators _queue = new QueueOperators();
-        private readonly TimerTasks _timerTasks;
+        private readonly TimerForAssignTasks _timerForAssignTasks;
+        private readonly TimerForNoAssignTasks _timerForNoAssignTasks;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<QueueOperatorManager> _logger;
 
@@ -27,7 +26,8 @@
             IServiceProvider serviceProvider,
             ILogger<QueueOperatorManager> logger)
         {
-            _timerTasks = new TimerTasks(this);
+            _timerForAssignTasks = new TimerForAssignTasks(this);
+            _timerForNoAssignTasks = new TimerForNoAssignTasks(this);
             _serviceProvider = serviceProvider;
             _logger = logger;
         }
@@ -36,41 +36,17 @@
         {
             _logger.LogInformation($"Пришла не назначенная задача {taskId}");
 
-            var (firstOperatorId, channels) = GetFirstOperator();
-            if (firstOperatorId == null)
+            var freeOperatorId = await GetFreeOperatorId(taskId);
+            if (freeOperatorId == null)
             {
+                await _timerForNoAssignTasks.Add(taskId);
                 return;
             }
 
-            while (channels.All(x => x.Reader.Completion.IsCompleted))
-            {
-                Remove(firstOperatorId);
+            await _timerForAssignTasks.Add(taskId, freeOperatorId);
 
-                (firstOperatorId, channels) = GetFirstOperator();
-                if (firstOperatorId == null)
-                {
-                    return;
-                }
-            }
-
-            using (var serviceScope = _serviceProvider.CreateScope())
-            {
-                var extensionService = serviceScope.ServiceProvider.GetRequiredService<IExtensionService>();
-
-                while (!await extensionService.CanAssign(taskId, firstOperatorId))
-                {
-                    firstOperatorId = _queue.NextPeek(firstOperatorId);
-                    if (firstOperatorId == null)
-                    {
-                        return;
-                    }
-                }
-            }
-
-            await _timerTasks.Add(taskId, firstOperatorId);
-
-            _queue.ChangeStatusToSelects(firstOperatorId);
-            await _channelService.WriteToChannel(taskId, firstOperatorId, assigned: false);
+            _queue.ChangeStatusToSelects(freeOperatorId);
+            await _channelService.WriteToChannel(taskId, freeOperatorId, assigned: false);
         }
 
         public async Task AddTask(string taskId, string operatorId)
@@ -126,6 +102,7 @@
                     }
                 }
             }
+
             _channelService.Remove(operatorId);
         }
 
@@ -135,31 +112,106 @@
 
         public async Task<bool> IsTaskForOperator(string taskId, string operatorId)
         {
-            if (_timerTasks.CheckOperator(taskId, operatorId))
+            if (_timerForAssignTasks.CheckOperator(taskId, operatorId))
             {
-                await _timerTasks.Remove(taskId);
+                await _timerForAssignTasks.Remove(taskId);
                 return true;
             }
+
             return false;
         }
 
-        private (string? firstOperatorId, List<Channel<TaskFromChannel>> channels) GetFirstOperator()
+        private async Task<string?> GetFreeOperatorId(string taskId)
         {
-            var firstOperatorId = _queue.Peek();
+            var firstOperatorId = GetFirstOperatorId();
             if (firstOperatorId == null)
             {
-                return (null, null!);
+                _logger.LogInformation($"Задача не назначилась, тк нет операторов в очереди. Очередь - {JsonSerializer.Serialize(_queue.GetOperators())}");
+                return null;
             }
 
-            var channels = _channelService.GetChannels(firstOperatorId);
-            if (channels == null)
+            using (var serviceScope = _serviceProvider.CreateScope())
             {
-                // эт не норм, оператор есть в очереди, а каналов у оператора нет
-                RemoveFromQueue(firstOperatorId);
-                return (null, null!);
+                var extensionService = serviceScope.ServiceProvider.GetRequiredService<IExtensionService>();
+
+                while (!await extensionService.CanAssign(taskId, firstOperatorId!))
+                {
+                    _logger.LogInformation($"На оператора {firstOperatorId} нельзя назначить задачу {taskId}.");
+
+                    List<Channel<TaskFromChannel>>? channels = null;
+                    while (channels == null || channels.All(x => x.Reader.Completion.IsCompleted))
+                    {
+                        var previousOperatorId = firstOperatorId;
+                        firstOperatorId = _queue.NextPeek(previousOperatorId);
+                        if (firstOperatorId == null)
+                        {
+                            _logger.LogInformation($"Задача не назначилась, тк нет операторов стоящих после {previousOperatorId} или которые могут взять данную задачу. " +
+                                                   $"Очередь - {JsonSerializer.Serialize(_queue.GetOperators())}");
+                            return null;
+                        }
+
+                        channels = _channelService.GetChannels(firstOperatorId);
+                        if (channels == null)
+                        {
+                            RemoveFromQueue(firstOperatorId);
+                            _logger.LogInformation($"Так как данная задача не может назначиться на оператора {previousOperatorId}, " +
+                                                   $"то она перешла к оператору {firstOperatorId} в очереди и так же была не назначена, " +
+                                                   $"потому что у оператора {firstOperatorId} не оказалось каналов, которые нужны для назначения задачи.");
+                            // Заменяем на старого оператора, тк текущего оператора удалили из очереди
+                            firstOperatorId = previousOperatorId;
+                        }
+                        else
+                        {
+                            if (channels.All(x => x.Reader.Completion.IsCompleted))
+                            {
+                                Remove(firstOperatorId);
+                                _logger.LogInformation($"Так как данная задача не может назначиться на оператора {previousOperatorId}, " +
+                                                       $"то она перешла к оператору {firstOperatorId} и так же была не назначена, " +
+                                                       $"потому что у оператора {firstOperatorId} завершены все каналы, которые нужны для назначения задачи.");
+                                // Заменяем на старого оператора, тк текущего оператора удалили из очереди
+                                firstOperatorId = previousOperatorId;
+                            }
+                        }
+                    }
+                }
             }
 
-            return (firstOperatorId, channels);
+            return firstOperatorId;
+        }
+
+        private string? GetFirstOperatorId()
+        {
+            List<Channel<TaskFromChannel>>? channels = null;
+
+            while (channels == null || channels.All(x => x.Reader.Completion.IsCompleted))
+            {
+                var firstOperatorId = _queue.Peek();
+                if (firstOperatorId == null)
+                {
+                    return null;
+                }
+
+                channels = _channelService.GetChannels(firstOperatorId);
+                if (channels == null)
+                {
+                    RemoveFromQueue(firstOperatorId);
+                    _logger.LogInformation($"У оператора {firstOperatorId} не оказалось каналов для назначения задачи.");
+                }
+                else
+                {
+                    if (channels.All(x => x.Reader.Completion.IsCompleted))
+                    {
+                        Remove(firstOperatorId);
+                        _logger.LogInformation($"У оператора {firstOperatorId} завершены все каналы для назначения задачи.");
+                    }
+                    else
+                    {
+                        return firstOperatorId;
+                    }
+                }
+            }
+
+            return null;
         }
 
         private void RemoveFromQueue(string operatorId)
@@ -176,7 +228,8 @@
 
         public void Dispose()
         {
-            _timerTasks.Dispose();
+            _timerForAssignTasks.Dispose();
+            _timerForNoAssignTasks.Dispose();
         }
     }
 }

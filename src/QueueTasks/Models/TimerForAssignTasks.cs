@@ -9,12 +9,15 @@
 
     using Timer = System.Timers.Timer;
 
-    internal class TimerTasks : IDisposable
+    /// <summary>
+    ///     Таймер для назначенных задач
+    /// </summary>
+    internal class TimerForAssignTasks : IDisposable
     {
         private readonly ConcurrentDictionary<string, TaskSelects> _tasks = new ConcurrentDictionary<string, TaskSelects>();
         private readonly QueueOperatorManager _queueOperatorManager;
 
-        public TimerTasks(QueueOperatorManager queueOperatorManager) => _queueOperatorManager = queueOperatorManager;
+        public TimerForAssignTasks(QueueOperatorManager queueOperatorManager) => _queueOperatorManager = queueOperatorManager;
 
         /// <summary>
         ///     Добавить потенциальную задачу для оператора, чтобы потом отправить ее на другогоу оператора,
@@ -37,20 +40,19 @@
         public bool CheckOperator(string taskId, string operatorId) =>
             _tasks.ContainsKey(taskId) && _tasks[taskId].OperatorId == operatorId;
 
-        private readonly SemaphoreSlim _pool = new SemaphoreSlim(1, 1);
-        private readonly Timer _timer = new Timer() { Interval = 10 * 1000 }; //TODO: сделать изменяемым значение
-
         /// <summary>
         ///     Удаление задачи из очереди ожидания взятия
         /// </summary>
-        /// <param name="taskId"></param>
+        /// <param name="taskId">Id задачи</param>
         public async Task Remove(string taskId)
         {
             _tasks.TryRemove(taskId, out _);
             await TryStopTimer();
         }
 
-        private readonly TimeSpan _maxTimeForThinks = new TimeSpan(0, 0, 30); //TODO: сделать изменяемым значение
+        private readonly SemaphoreSlim _pool = new SemaphoreSlim(1, 1);
+        private readonly Timer _timer = new Timer() { Interval = 10 * 1000 }; //TODO: сделать изменяемым значение
+        private readonly TimeSpan _expirationThinkingTime = new TimeSpan(0, 0, 30); //TODO: сделать изменяемым значение
 
         private async Task TryStartTimer()
         {
@@ -61,8 +63,8 @@
                 if (!_timer.Enabled)
                 {
                     // не добавляем повторно метод
-                    _timer.Elapsed -= CheckTasks;
-                    _timer.Elapsed += CheckTasks;
+                    _timer.Elapsed -= CheckTasksForExpirationThinkingTime;
+                    _timer.Elapsed += CheckTasksForExpirationThinkingTime;
 
                     _timer.AutoReset = true;
                     _timer.Enabled = true;
@@ -92,11 +94,11 @@
             }
         }
 
-        private async void CheckTasks(object e, EventArgs a)
+        private async void CheckTasksForExpirationThinkingTime(object e, EventArgs a)
         {
             foreach (var task in _tasks)
             {
-                if (DateTime.UtcNow - task.Value.DateTime > _maxTimeForThinks)
+                if (DateTime.UtcNow - task.Value.DateTime > _expirationThinkingTime)
                 {
                     _queueOperatorManager.Remove(task.Value.OperatorId);
                     _tasks.TryRemove(task.Key, out _);
@@ -109,6 +111,7 @@
         public void Dispose()
         {
             _timer.Dispose();
+            _pool.Dispose();
         }
     }
 }

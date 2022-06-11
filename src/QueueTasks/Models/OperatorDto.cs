@@ -4,7 +4,7 @@
     {
         public string OperatorId { get; set; } = default!;
 
-        public long Priority { get; set; }
+        public string Time { get; set; } = default!;
 
         public string Status { get; set; } = default!;
     }

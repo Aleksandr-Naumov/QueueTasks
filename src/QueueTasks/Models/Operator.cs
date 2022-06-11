@@ -1,20 +1,20 @@
 ﻿namespace QueueTasks.Models
 {
     using Enums;
+    using System;
 
     internal class Operator
     {
-        public Operator(long priority)
+        public Operator()
         {
-            Priority = priority;
+            Time = DateTime.UtcNow;
             Status = OperatorStatus.Free;
         }
 
         /// <summary>
-        ///     Приоритет оператора в очереди
-        ///     (чем выше значение, тем меньше его приоритет)
+        ///     Время встатия оператора в очередь
         /// </summary>
-        public long Priority { get; private set; }
+        public DateTime Time { get; private set; }
 
         /// <summary>
         ///     Статус оператора в очереди

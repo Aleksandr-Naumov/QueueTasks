@@ -3,7 +3,6 @@
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Linq;
-    using System.Threading;
 
     using Enums;
 
@@ -19,15 +18,13 @@
         ///     Значение - оператор
         /// </summary>
         private readonly ConcurrentDictionary<string, Operator> _operators = new ConcurrentDictionary<string, Operator>();
-        private long _priority; //TODO: сделать ulong при использовании .NET 6, а скорее всего лучше перейти на DateTime просто
 
         /// <summary>
         ///     Добавляет в конец очереди оператора
         /// </summary>
         /// <param name="operatorId">Id оператора</param>
         /// <returns>true, если оператора добавлен; false, если оператор уже есть в очереди</returns>
-        public bool TryEnqueue(string operatorId) =>
-            _operators.TryAdd(operatorId, new Operator(Interlocked.Increment(ref _priority)));
+        public bool TryEnqueue(string operatorId) => _operators.TryAdd(operatorId, new Operator());
 
         /// <summary>
         ///     Удаляет и возвращает Id оператора из начала очереди оператора
@@ -35,7 +32,7 @@
         /// <returns>Id оператора, если очередь не пуста; инача null</returns>
         public string? Dequeue()
         {
-            var firstOperatorId = _operators.OrderBy(x => x.Value.Priority).FirstOrDefault().Key;
+            var firstOperatorId = _operators.OrderBy(x => x.Value.Time).FirstOrDefault().Key;
             if (firstOperatorId == null)
             {
                 return null;
@@ -56,7 +53,7 @@
         public string? Peek() =>
             _operators
                 .Where(x => x.Value.Status == OperatorStatus.Free)
-                .OrderBy(x => x.Value.Priority)
+                .OrderBy(x => x.Value.Time)
                 .FirstOrDefault().Key;
 
         /// <summary>
@@ -68,8 +65,8 @@
             var @operator = _operators[operatorId];
             return _operators
                 .Where(x => x.Value.Status == OperatorStatus.Free &&
-                            x.Value.Priority > @operator.Priority)
-                .OrderBy(x => x.Value.Priority)
+                            x.Value.Time > @operator.Time)
+                .OrderBy(x => x.Value.Time)
                 .FirstOrDefault().Key;
         }
 
@@ -105,10 +102,10 @@
         /// </summary>
         /// <returns>Информация об операторах, которые находятся в очереди</returns>
         public IEnumerable<OperatorDto> GetOperators() =>
-            _operators.Select(x => new OperatorDto()
+            _operators.OrderBy(x => x.Value.Time).Select(x => new OperatorDto()
             {
                 OperatorId = x.Key,
-                Priority = x.Value.Priority,
+                Time = x.Value.Time.ToString("G"),
                 Status = x.Value.Status.GetDescription()
             });
     }

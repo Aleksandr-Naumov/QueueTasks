@@ -217,7 +217,7 @@
             {
                 _logger.LogWarning($"Задача {taskId} не является потенциальной для назначения оператором {operatorId}");
                 return StatusCode(StatusCodes.Status403Forbidden,
-                    ApiResponse.CreateFailure("Не возможность назначения задачи на текущего оператора"));
+                    ApiResponse.CreateFailure("Задача не выдана текущему оператору"));
             }
 
             var result = await _extensionService.TryAssignTask(taskId, operatorId);
@@ -247,7 +247,7 @@
             {
                 _logger.LogWarning($"Задача {taskId} не является потенциальной для отмены оператором {operatorId}");
                 return StatusCode(StatusCodes.Status403Forbidden,
-                    ApiResponse.CreateFailure("Не возможность отказа от задачи текущим оператором"));
+                    ApiResponse.CreateFailure("Задача не выдана текущему оператору"));
             }
 
             _queueOperatorManager.Remove(operatorId);

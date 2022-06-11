@@ -1,5 +1,12 @@
 # QueueTasks
-**Фреймворк для получения "задач"(или чего угодно) из очереди пользователю с применением SSE (API)**
+**Фреймворк для получения "задач" по очереди пользователями с применением SSE (API)**
+
+
+**Возможности:**
+1. Классификация задач для определенных пользователей, например, по уровню/грейду.
+2. Определять момент, когда нужно уведомить о появлении задачи пользователя.
+3. Задача переназначается на другого пользователя в очереди, если тот отказался от нее. (Даже если ссылка была закрыта и метод для отмены не был вызван)
+4. Пользователи не могут брать чужие назначенные задачи, будет срабатывать валидация.
 
 
 **Применение фреймворка**:
@@ -50,15 +57,23 @@
 - Сервер отдает все события, когда завершается сам запрос => httpContext.Response.Body может быть присвоен новый Stream в каком-то Middleware,
 если вы все-таки что-то хотите сделать со Stream (Response.Body),
 то лучше сделайте декоратор для изменения/обогащения его, но никак не создавать новый Stream;
-- У некоторых пользователей обрывается соединение(запрос) и начинается новый запрос (постоянный перевызов метода "wait-sse") => не присылается заголовок Transfer-Encoding, 
+- У некоторых пользователей обрывается соединение(запрос) и начинается новый запрос (постоянный перевызов метода "wait-sse") => 
+1) не присылается заголовок Transfer-Encoding, 
 это может быть из-за настройка nginx конфига, если копировали со stackoverflow информацию, то нужно добавить в location "chunked_transfer_encoding on;";
+2) На клиенте используется http 2.0 => прописать у клиента "--disable-http2" в .exe браузера Google Chrome (целевого решения пока не нашли). 
+Kubernetes Ingress при ssl соединении определяется протокол и на уровне nginx уже не правится это, проблема инфраструктурнее;
+3) Установленный антивирусник мог пожаловаться;
 - Не отображаются на фронте события => добавить в webpack.config "compress: false," - "Исправлен баг работы SSE в webpack.config";
-- Установленный антивирусник может пожаловаться;
+- Падает запрос при долгом ожидании (50 минут) => ???;
 
 Список необходимых заголовках, которые должны приходить с ответом:
-...
+- Content-Type: text/event-stream; charset=UTF-8
+- Transfer-Encoding: chunked
+- Cache-Control: no-cache
+- Access-Control-Allow-Origin: *
 
 **Ссылки:**
 - [Nginx config](https://stackoverflow.com/questions/13672743/eventsource-server-sent-events-through-nginx "location section") - обязательно **chunked_transfer_encoding on;**
-- [Expample on PHP using SSE](https://developer.mozilla.org/ru/docs/Web/API/Server-sent_events/Using_server-sent_events "Пример SSE")
+- [Expample on PHP using SSE](https://developer.mozilla.org/ru/docs/Web/API/Server-sent_events/Using_server-sent_events "Пример SSE на PHP")
 - [JavaScript SSE](https://learn.javascript.ru/server-sent-events "Как использовать SSE в JS")
+- [Add nuget package XML documentation to swagger](https://snede.net/add-nuget-package-xml-documentation-to-swagger/ "Подтягивание xml документации из nuget пакета")
