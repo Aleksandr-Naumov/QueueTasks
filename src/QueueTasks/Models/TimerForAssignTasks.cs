@@ -27,7 +27,7 @@
         /// <param name="operatorId">Id оператора</param>
         public async Task Add(string taskId, string operatorId)
         {
-            _tasks.TryAdd(taskId, new TaskSelects() { DateTime = DateTime.UtcNow, OperatorId = operatorId });
+            _tasks.TryAdd(taskId, new TaskSelects() { DateTime = DateTime.Now, OperatorId = operatorId });
             await TryStartTimer();
         }
 
@@ -98,7 +98,7 @@
         {
             foreach (var task in _tasks)
             {
-                if (DateTime.UtcNow - task.Value.DateTime > _expirationThinkingTime)
+                if (DateTime.Now - task.Value.DateTime > _expirationThinkingTime)
                 {
                     _queueOperatorManager.Remove(task.Value.OperatorId);
                     _tasks.TryRemove(task.Key, out _);

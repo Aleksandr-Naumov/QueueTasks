@@ -7,7 +7,7 @@
     {
         public Operator()
         {
-            Time = DateTime.UtcNow;
+            Time = DateTime.Now;
             Status = OperatorStatus.Free;
         }
 

@@ -59,7 +59,7 @@
         /// <summary>
         ///     Возращает Id оператора из начала очереди, который стоит после переданного оператора;
         /// </summary>
-        /// <returns>Id оператора, если в очереди есть операторы после <see cref="operatorId"/>; иначе null</returns>
+        /// <returns>Id оператора, если в очереди есть операторы после <paramref name="operatorId"/>; иначе null</returns>
         public string? NextPeek(string operatorId)
         {
             var @operator = _operators[operatorId];

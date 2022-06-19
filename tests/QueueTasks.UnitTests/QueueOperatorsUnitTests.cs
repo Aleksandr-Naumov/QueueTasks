@@ -38,7 +38,7 @@ namespace QueueTasks.UnitTests
 
         [Theory]
         [AutoMoqData]
-        public void ChangeStatusToSelects_NoFreeOperatorAndQueueIsNotEmpty(QueueOperators queue)
+        public void ChangeStatusToSelects_QueueIsNotEmptyAndNoFreeOperator(QueueOperators queue)
         {
             //arrange
             var operatorId = 1.ToString();

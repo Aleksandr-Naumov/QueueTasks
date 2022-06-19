@@ -63,7 +63,14 @@
             {
                 if (!channel.Reader.Completion.IsCompleted)
                 {
-                    await channel.Writer.WriteAsync(new TaskFromChannel(taskId, assigned));
+                    try
+                    {
+                        await channel.Writer.WriteAsync(new TaskFromChannel(taskId, assigned));
+                    }
+                    catch (ChannelClosedException)
+                    {
+                        // Канал могли успеть закрыть, поэтому просто обрабатываем это, а таймер через время перекинет на другого оператора из очереди задачу
+                    }
                 }
             }
         }

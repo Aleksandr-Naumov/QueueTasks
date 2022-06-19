@@ -93,7 +93,6 @@
                 {
                     _tasks.TryRemove(task.Key, out _);
                     await _queueOperatorManager.AddTask(task.Key);
-
                 }
             }
         }
