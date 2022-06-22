@@ -8,11 +8,20 @@
     public interface IExtensionService
     {
         /// <summary>
-        ///     Метод получения свободной задачи и назначения на оператора, если такая имеется.
+        ///     Метод получения первой свободной задачи по приоритету для оператора <paramref name="operatorId"/>.
         /// </summary>
         /// <param name="operatorId">Id оператора</param>
         /// <returns>Id задачи, если есть свободные; иначе null</returns>
-        Task<string?> GetFreeTaskId(string operatorId);
+        Task<string?> GetFreeTaskIdForOperator(string operatorId);
+
+        /// <summary>
+        ///     Метод получения свободной задачи, которая идет по приоритету после <paramref name="taskId"/> для оператора <paramref name="operatorId"/>, 
+        ///     тк задачу <paramref name="taskId"/> не получилось назначить на оператора <paramref name="operatorId"/>.
+        /// </summary>
+        /// <param name="taskId">Id задачи</param>
+        /// <param name="operatorId">Id оператора</param>
+        /// <returns>Id задачи, если есть свободные; иначе null</returns>
+        Task<string?> GetFreeTaskIdForOperator(string taskId, string operatorId);
 
         /// <summary>
         ///     Метод для проверки возможности назначения задачи на оператора.
@@ -23,7 +32,7 @@
         Task<bool> CanAssign(string taskId, string operatorId);
 
         /// <summary>
-        ///     Метод проверки оператора на возможность брать и ожидать задач из очереди
+        ///     Метод проверки оператора на возможность брать или ожидать задач из очереди
         /// </summary>
         /// <param name="operatorId">Id оператора</param>
         /// <returns>true, если можно встать в очередь; иначе false</returns>

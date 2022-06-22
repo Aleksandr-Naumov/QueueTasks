@@ -41,6 +41,13 @@
             _tasks.ContainsKey(taskId) && _tasks[taskId].OperatorId == operatorId;
 
         /// <summary>
+        ///     Проверяет выдана ли задача какому-то потенциальному оператору или будет ли выдана в будущем операторам стоящим в очереди или нет.
+        /// </summary>
+        /// <param name="taskId">Id задачи</param>
+        /// <returns>true, если задача выдана какому-то оператору уже; иначе false</returns>
+        public bool Contains(string taskId) => _tasks.ContainsKey(taskId);
+
+        /// <summary>
         ///     Удаление задачи из очереди ожидания взятия
         /// </summary>
         /// <param name="taskId">Id задачи</param>

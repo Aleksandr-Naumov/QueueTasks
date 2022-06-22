@@ -70,12 +70,7 @@
                 return BadRequest(ApiResponse.CreateFailure("Нет возможности брать задачи"));
             }
 
-            if (!_queueOperatorManager.IsEmpty())
-            {
-                return Ok(ApiResponse.CreateSuccess(new { TaskId = (string)default! }));
-            }
-
-            var taskId = await _extensionService.GetFreeTaskId(operatorId);
+            var taskId = await _queueOperatorManager.GetFreeTaskIdAndAssign(operatorId);
             return Ok(ApiResponse.CreateSuccess(new { TaskId = taskId }));
         }
 
@@ -120,7 +115,7 @@
 
                 var taskFromChannel = await channel.Reader.ReadAsync(HttpContext.RequestAborted);
 
-                channel.Writer.Complete();
+                channel.Writer.Complete(); //TODO: может быть перейти на CancellationToken все-таки?
                 timer.Stop();
 
                 await SendEventSse($"event: task\n" +

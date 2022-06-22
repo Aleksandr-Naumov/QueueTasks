@@ -78,6 +78,13 @@
         public bool TryRemove(string operatorId) => _operators.TryRemove(operatorId, out _);
 
         /// <summary>
+        ///     Проверяет есть ли оператор в очереди или нет.
+        /// </summary>
+        /// <param name="operatorId">Id оператора</param>
+        /// <returns>true, если оператор стоит в очереди; иначе false</returns>
+        public bool Contains(string operatorId) => _operators.ContainsKey(operatorId);
+
+        /// <summary>
         ///     Проверяет пустая очереди или нет
         /// </summary>
         /// <returns>true, если операторов нет в очереди; иначе false</returns>

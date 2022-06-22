@@ -10,7 +10,7 @@
         public string OperatorId { get; set; } = default!;
 
         /// <summary>
-        ///     Время когда задачу выдали данному оператору
+        ///     Время когда задачу выдали оператору
         /// </summary>
         public DateTime DateTime { get; set; }
     }

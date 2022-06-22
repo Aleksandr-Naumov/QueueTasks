@@ -1,13 +1,28 @@
 ﻿namespace QueueTasks.Api.Models
 {
-    internal class ApiResponse
+    public class ApiResponse
     {
+        /// <summary>
+        ///     Успешно ли завершен запрос
+        /// </summary>
         public bool Success { get; set; }
-        public string Error { get; set; } = default!;
-        public int ErrorCode { get; set; }
-        public object Result { get; set; } = default!;
 
-        public static ApiResponse CreateFailure(string error = null!, int? errorCode = null, object result = default!) =>
+        /// <summary>
+        ///     Текст ошибки
+        /// </summary>
+        public string Error { get; set; } = default!;
+
+        /// <summary>
+        ///     Код ошибки
+        /// </summary>
+        public int ErrorCode { get; set; }
+
+        /// <summary>
+        ///     Данные представляющие результат выполненного успешно запроса
+        /// </summary>
+        public object? Result { get; set; } = default!;
+
+        public static ApiResponse CreateFailure(string error = null!, int? errorCode = null, object? result = default) =>
             new ApiResponse
             {
                 Success = false,
@@ -16,7 +31,7 @@
                 Result = result
             };
 
-        public static ApiResponse CreateSuccess(object result = default!) =>
+        public static ApiResponse CreateSuccess(object? result = default) =>
             new ApiResponse()
             {
                 Success = true,

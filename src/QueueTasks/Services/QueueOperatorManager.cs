@@ -7,9 +7,10 @@
     using System.Threading.Tasks;
     using System.Text.Json;
 
-    using Abstractions;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
+
+    using Abstractions;
     using Models;
     using Contracts;
 
@@ -18,7 +19,6 @@
         private readonly ChannelService _channelService = new ChannelService();
         private readonly QueueOperators _queue = new QueueOperators();
         private readonly TimerForAssignTasks _timerForAssignTasks;
-        private readonly TimerForNoAssignTasks _timerForNoAssignTasks;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<QueueOperatorManager> _logger;
 
@@ -27,7 +27,6 @@
             ILogger<QueueOperatorManager> logger)
         {
             _timerForAssignTasks = new TimerForAssignTasks(this);
-            _timerForNoAssignTasks = new TimerForNoAssignTasks(this);
             _serviceProvider = serviceProvider;
             _logger = logger;
         }
@@ -39,7 +38,6 @@
             var freeOperatorId = await GetFreeOperatorId(taskId);
             if (freeOperatorId == null)
             {
-                await _timerForNoAssignTasks.Add(taskId);
                 return;
             }
 
@@ -77,6 +75,50 @@
             return channel;
         }
 
+        public async Task<string?> GetFreeTaskIdAndAssign(string operatorId)
+        {
+            if (_queue.Contains(operatorId))
+            {
+                return null;
+            }
+
+            AssignResult? result = null;
+            string? taskId;
+            using (var serviceScope = _serviceProvider.CreateScope())
+            {
+                var extensionService = serviceScope.ServiceProvider.GetRequiredService<IExtensionService>();
+
+                taskId = await extensionService.GetFreeTaskIdForOperator(operatorId);
+                while (result == null || !result.Success)
+                {
+                    if (string.IsNullOrEmpty(taskId))
+                    {
+                        return null;
+                    }
+
+                    if (!_timerForAssignTasks.Contains(taskId) && await extensionService.CanAssign(taskId, operatorId))
+                    {
+                        result = await extensionService.TryAssignTask(taskId, operatorId);
+                        if (!result.Success)
+                        {
+                            _logger.LogInformation($"Задача {taskId} не была назначена на оператора {operatorId}. Текст ошибки - {result.Error}");
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"Задачу {taskId} нельзя назначить на оператора {operatorId} или задача уже выдана другому оператору");
+                    }
+
+                    if (result == null || !result.Success)
+                    {
+                        taskId = await extensionService.GetFreeTaskIdForOperator(taskId, operatorId);
+                    }
+                }
+            }
+
+            return taskId;
+        }
+
         public void Remove(string operatorId)
         {
             var channels = _channelService.GetChannels(operatorId);
@@ -106,10 +148,6 @@
             _channelService.Remove(operatorId);
         }
 
-        public bool IsEmpty() => _queue.IsEmpty();
-
-        public IEnumerable<OperatorDto> GetOperators() => _queue.GetOperators();
-
         public async Task<bool> IsTaskForOperator(string taskId, string operatorId)
         {
             if (_timerForAssignTasks.CheckOperator(taskId, operatorId))
@@ -121,6 +159,12 @@
             return false;
         }
 
+        public IEnumerable<OperatorDto> GetOperators() => _queue.GetOperators();
+
+
+        /// <summary>
+        ///     Получить Id свободного оператора из очереди, на которого можно назначить данную задачу.
+        /// </summary>
         private async Task<string?> GetFreeOperatorId(string taskId)
         {
             var firstOperatorId = GetFirstOperatorId();
@@ -179,6 +223,9 @@
             return firstOperatorId;
         }
 
+        /// <summary>
+        ///     Получить Id первого оператора из очереди
+        /// </summary>
         private string? GetFirstOperatorId()
         {
             List<Channel<TaskFromChannel>>? channels = null;
@@ -229,7 +276,6 @@
         public void Dispose()
         {
             _timerForAssignTasks.Dispose();
-            _timerForNoAssignTasks.Dispose();
         }
     }
 }

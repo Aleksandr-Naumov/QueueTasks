@@ -15,6 +15,13 @@
         Channel<TaskFromChannel> AddToQueue(string operatorId);
 
         /// <summary>
+        ///     Возвращает первую свободную задачу для оператора и назначает ее на него, если такая имеется
+        /// </summary>
+        /// <param name="operatorId">Id оператора</param>
+        /// <returns>Id задачи или null, если нет свободных задач</returns>
+        Task<string?> GetFreeTaskIdAndAssign(string operatorId);
+
+        /// <summary>
         ///     Удаление оператора из очереди и его каналов, если эти каналы уже завершены
         /// </summary>
         /// <param name="operatorId">Id оператора</param>
@@ -25,12 +32,6 @@
         /// </summary>
         /// <param name="operatorId">Id оператора</param>
         void RemoveAll(string operatorId);
-
-        /// <summary>
-        ///     Проверяет пустая очереди или нет
-        /// </summary>
-        /// <returns>true, если операторов нет в очереди; иначе false</returns>
-        bool IsEmpty();
 
         /// <summary>
         ///     Проверяет что потенциальная задача была выдана оператору
