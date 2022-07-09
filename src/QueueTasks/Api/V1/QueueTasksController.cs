@@ -116,6 +116,7 @@
                 var taskFromChannel = await channel.Reader.ReadAsync(HttpContext.RequestAborted);
 
                 channel.Writer.Complete(); //TODO: может быть перейти на CancellationToken все-таки?
+                                           //TODO: перенести завершение канала в ChannelService - что с потоками будет, не упадет если прочитать не успели(асинхронщина)?
                 timer.Stop();
 
                 await SendEventSse($"event: task\n" +
@@ -258,6 +259,7 @@
         ///     "wait-sse" снова вызовется на этих вкладках, тк eventsource после неудачи переподключается, поэтому этот метод не особо эффективный)
         /// </summary>
         /// <returns></returns>
+        [Obsolete]
         [HttpDelete("exit")]
         [Produces("application/json")]
         public async Task<IActionResult> ExitFromQueue()

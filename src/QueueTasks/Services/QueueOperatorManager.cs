@@ -52,6 +52,7 @@
             _logger.LogInformation($"Пришла назначенная задача {taskId} на оператора {operatorId}");
 
             await _channelService.WriteToChannel(taskId, operatorId, assigned: true);
+            // Могут не успеть закрыться все каналы и удаление оператора не произойдет
             Remove(operatorId);
         }
 
